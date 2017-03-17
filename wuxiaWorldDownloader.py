@@ -94,8 +94,6 @@ def get_book_name(url):
         if "book" in part:
             book_name = ''.join(book_list[index:]).split("-")
 
-            print(book_name)
-
             for index, word in enumerate(book_name):
                 if "chapter" in word:
                     book = '-'.join(book_name[:index])

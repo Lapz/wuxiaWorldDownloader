@@ -29,10 +29,9 @@ TODO:
 """
 
 from bs4 import BeautifulSoup
-import requests
+from requests import get as rget
 import sys
 import os
-import glob
 
 
 def check_for_dir(dirName):
@@ -59,7 +58,7 @@ def get_chap_links(url):
         - An array contain links
 
      """
-    index_page = requests.get(url)
+    index_page = rget(url)
 
     try:
         index_page.raise_for_status()
@@ -126,59 +125,47 @@ def changes_href_to_rel(url):
                     return rel_url
 
 
-def download_chapters(links):
+def download_chapters(link):
     """ Downloads the chapters and saves them in markdown format"""
 
-    if(links == 0):
-        print("Invalid index page")
+    chapter_url = str(link.get('href'))
+    chapter_book = get_book_name(link.get('href'))
+    # Gets the url splits it takes the part that has the book splits
+    # that and joins it together for a valid pathname
+    chapter_file_name = str(link.getText()).split(" ")[0:2]
 
-    else:
+    chapter_file_name = ' '.join(chapter_file_name)
+    chapter_file_name += ".html"
 
-        for link in links:
-            chapter_url = str(link.get('href'))
-            chapter_book = get_book_name(link.get('href'))
-            # Gets the url splits it takes the part that has the book splits
-            # that and joins it together for a valid pathname
+    chapter_title = str(link.getText())
 
-            chapter_file_name = str(link.getText()).split(" ")[0:2]
+    try:
+        # print('Downloading {0}  from {1} \n '.format(
+        #     chapter_title, chapter_book))
 
-            chapter_file_name = ' '.join(chapter_file_name)
-            chapter_file_name += ".html"
+        res = rget(chapter_url)
 
-            chapter_title = str(link.getText())
+        res.raise_for_status()
 
-            try:
-                print('Downloading {0}  from {1} \n '.format(
-                    chapter_title, chapter_book))
+        soup = BeautifulSoup(res.text, "html.parser")
 
-                res = requests.get(chapter_url)
+        for a in soup.findAll('a'):
+            a['href'] = changes_href_to_rel(a['href'])
 
-                res.raise_for_status()
+        chapter_contents = soup.find(
+            "div", itemprop="articleBody").prettify("utf-8")
 
-                soup = BeautifulSoup(res.text, "html.parser")
+        check_for_dir("./wuxia_world/{0}".format(chapter_book))
 
-                for a in soup.findAll('a'):
-                    a['href'] = changes_href_to_rel(a['href'])
+        chapter_file = open(os.path.join(
+            "./wuxia_world/{0}".format(chapter_book), os.path.basename(chapter_file_name)), 'wb')
+        chapter_file.write(chapter_contents)
 
-                chapter_contents = soup.find(
-                    "div", itemprop="articleBody").prettify("utf-8")
+        chapter_file.flush()
+        chapter_file.close()
 
-                check_for_dir("./wuxia_world/{0}".format(chapter_book))
-
-                chapter_file = open(os.path.join(
-                    "./wuxia_world/{0}".format(chapter_book), os.path.basename(chapter_file_name)), 'wb')
-
-                chapter_file.write(chapter_contents)
-
-                chapter_file.flush()
-
-                chapter_file.close()
-
-            except Exception as exc:
-                continue
-
-        print("Finished downloading {0} chapters".format(len(links)))
-
+    except Exception as exc:
+        print(exc)
         # Skip this link
 
 
